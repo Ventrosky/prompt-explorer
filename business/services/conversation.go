@@ -141,3 +141,81 @@ func (s *ConversationService) GetConversationHistory(ctx context.Context, conver
 
 	return conversation, messages, nil
 }
+
+// AddMessage adds a new message to a conversation
+func (s *ConversationService) AddMessage(ctx context.Context, conversationID string, sender models.MessageType, content string) (*models.Message, error) {
+	convID, err := uuid.Parse(conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid conversation ID: %w", err)
+	}
+
+	// Verify conversation exists
+	_, err = s.conversationRepo.GetByID(ctx, convID)
+	if err != nil {
+		return nil, fmt.Errorf("conversation not found: %w", err)
+	}
+
+	// Create message
+	message := models.NewMessage(convID, sender, content)
+
+	// Save message
+	if err := s.messageRepo.Create(ctx, message); err != nil {
+		return nil, fmt.Errorf("failed to create message: %w", err)
+	}
+
+	return message, nil
+}
+
+// UpdateMessage updates an existing message
+func (s *ConversationService) UpdateMessage(ctx context.Context, messageID string, content string) error {
+	msgID, err := uuid.Parse(messageID)
+	if err != nil {
+		return fmt.Errorf("invalid message ID: %w", err)
+	}
+
+	// Get existing message
+	message, err := s.messageRepo.GetByID(ctx, msgID)
+	if err != nil {
+		return fmt.Errorf("message not found: %w", err)
+	}
+
+	// Update content
+	message.Content = content
+
+	// Save changes
+	if err := s.messageRepo.Update(ctx, message); err != nil {
+		return fmt.Errorf("failed to update message: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteMessage deletes a message
+func (s *ConversationService) DeleteMessage(ctx context.Context, messageID string) error {
+	msgID, err := uuid.Parse(messageID)
+	if err != nil {
+		return fmt.Errorf("invalid message ID: %w", err)
+	}
+
+	// Delete message
+	if err := s.messageRepo.Delete(ctx, msgID); err != nil {
+		return fmt.Errorf("failed to delete message: %w", err)
+	}
+
+	return nil
+}
+
+// GetMessage gets a specific message by ID
+func (s *ConversationService) GetMessage(ctx context.Context, messageID string) (*models.Message, error) {
+	msgID, err := uuid.Parse(messageID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid message ID: %w", err)
+	}
+
+	message, err := s.messageRepo.GetByID(ctx, msgID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message: %w", err)
+	}
+
+	return message, nil
+}

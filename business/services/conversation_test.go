@@ -210,3 +210,347 @@ func TestConversationService_CreateConversation(t *testing.T) {
 		t.Error("Expected conversation to not be favorited by default")
 	}
 }
+
+func TestConversationService_AddMessage(t *testing.T) {
+	tdb := setupTestDB(t)
+	defer tdb.cleanupTestDB(t)
+
+	ctx := context.Background()
+
+	// Create a conversation first
+	conversation, err := tdb.ConversationService.CreateConversation(ctx, "Test Conversation")
+	if err != nil {
+		t.Fatalf("Failed to create conversation: %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		conversationID string
+		sender         models.MessageType
+		content        string
+		expectError    bool
+		expectedSender models.MessageType
+	}{
+		{
+			name:           "Add system message",
+			conversationID: conversation.ID.String(),
+			sender:         models.MessageTypeSystem,
+			content:        "You are a helpful assistant",
+			expectError:    false,
+			expectedSender: models.MessageTypeSystem,
+		},
+		{
+			name:           "Add user message",
+			conversationID: conversation.ID.String(),
+			sender:         models.MessageTypeUser,
+			content:        "Hello, how are you?",
+			expectError:    false,
+			expectedSender: models.MessageTypeUser,
+		},
+		{
+			name:           "Add assistant message",
+			conversationID: conversation.ID.String(),
+			sender:         models.MessageTypeAssistant,
+			content:        "I'm doing well, thank you!",
+			expectError:    false,
+			expectedSender: models.MessageTypeAssistant,
+		},
+		{
+			name:           "Add message to non-existent conversation",
+			conversationID: "00000000-0000-0000-0000-000000000000",
+			sender:         models.MessageTypeUser,
+			content:        "Test",
+			expectError:    true,
+			expectedSender: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			message, err := tdb.ConversationService.AddMessage(ctx, tt.conversationID, tt.sender, tt.content)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if message.Sender != tt.expectedSender {
+				t.Errorf("Expected sender %s, got %s", tt.expectedSender, message.Sender)
+			}
+
+			if message.Content != tt.content {
+				t.Errorf("Expected content %s, got %s", tt.content, message.Content)
+			}
+		})
+	}
+}
+
+func TestConversationService_UpdateMessage(t *testing.T) {
+	tdb := setupTestDB(t)
+	defer tdb.cleanupTestDB(t)
+
+	ctx := context.Background()
+
+	// Create conversation and message
+	conversation, err := tdb.ConversationService.CreateConversation(ctx, "Test Conversation")
+	if err != nil {
+		t.Fatalf("Failed to create conversation: %v", err)
+	}
+
+	message, err := tdb.ConversationService.AddMessage(ctx, conversation.ID.String(), models.MessageTypeUser, "Original content")
+	if err != nil {
+		t.Fatalf("Failed to add message: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		messageID   string
+		newContent  string
+		expectError bool
+	}{
+		{
+			name:        "Update existing message",
+			messageID:   message.ID.String(),
+			newContent:  "Updated content",
+			expectError: false,
+		},
+		{
+			name:        "Update non-existent message",
+			messageID:   "00000000-0000-0000-0000-000000000000",
+			newContent:  "Test",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tdb.ConversationService.UpdateMessage(ctx, tt.messageID, tt.newContent)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			// Verify the update
+			updatedMessage, err := tdb.ConversationService.GetMessage(ctx, tt.messageID)
+			if err != nil {
+				t.Fatalf("Failed to get updated message: %v", err)
+			}
+
+			if updatedMessage.Content != tt.newContent {
+				t.Errorf("Expected content %s, got %s", tt.newContent, updatedMessage.Content)
+			}
+		})
+	}
+}
+
+func TestConversationService_DeleteMessage(t *testing.T) {
+	tdb := setupTestDB(t)
+	defer tdb.cleanupTestDB(t)
+
+	ctx := context.Background()
+
+	// Create conversation and message
+	conversation, err := tdb.ConversationService.CreateConversation(ctx, "Test Conversation")
+	if err != nil {
+		t.Fatalf("Failed to create conversation: %v", err)
+	}
+
+	message, err := tdb.ConversationService.AddMessage(ctx, conversation.ID.String(), models.MessageTypeUser, "Test message")
+	if err != nil {
+		t.Fatalf("Failed to add message: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		messageID   string
+		expectError bool
+	}{
+		{
+			name:        "Delete existing message",
+			messageID:   message.ID.String(),
+			expectError: false,
+		},
+		{
+			name:        "Delete non-existent message",
+			messageID:   "00000000-0000-0000-0000-000000000000",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tdb.ConversationService.DeleteMessage(ctx, tt.messageID)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			// Verify the message is deleted (only for successful deletions)
+			if !tt.expectError {
+				_, err = tdb.ConversationService.GetMessage(ctx, tt.messageID)
+				if err == nil {
+					t.Error("Expected error when getting deleted message")
+				}
+			}
+		})
+	}
+}
+
+func TestConversationService_GetMessage(t *testing.T) {
+	tdb := setupTestDB(t)
+	defer tdb.cleanupTestDB(t)
+
+	ctx := context.Background()
+
+	// Create conversation and message
+	conversation, err := tdb.ConversationService.CreateConversation(ctx, "Test Conversation")
+	if err != nil {
+		t.Fatalf("Failed to create conversation: %v", err)
+	}
+
+	originalMessage, err := tdb.ConversationService.AddMessage(ctx, conversation.ID.String(), models.MessageTypeUser, "Test message content")
+	if err != nil {
+		t.Fatalf("Failed to add message: %v", err)
+	}
+
+	tests := []struct {
+		name            string
+		messageID       string
+		expectError     bool
+		expectedID      string
+		expectedContent string
+		expectedSender  models.MessageType
+	}{
+		{
+			name:            "Get existing message",
+			messageID:       originalMessage.ID.String(),
+			expectError:     false,
+			expectedID:      originalMessage.ID.String(),
+			expectedContent: "Test message content",
+			expectedSender:  models.MessageTypeUser,
+		},
+		{
+			name:        "Get non-existent message",
+			messageID:   "00000000-0000-0000-0000-000000000000",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			message, err := tdb.ConversationService.GetMessage(ctx, tt.messageID)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if message.ID.String() != tt.expectedID {
+				t.Errorf("Expected message ID %s, got %s", tt.expectedID, message.ID)
+			}
+
+			if message.Content != tt.expectedContent {
+				t.Errorf("Expected content %s, got %s", tt.expectedContent, message.Content)
+			}
+
+			if message.Sender != tt.expectedSender {
+				t.Errorf("Expected sender %s, got %s", tt.expectedSender, message.Sender)
+			}
+		})
+	}
+}
+
+func TestConversationService_GetConversationHistory(t *testing.T) {
+	tdb := setupTestDB(t)
+	defer tdb.cleanupTestDB(t)
+
+	ctx := context.Background()
+
+	// Create conversation
+	conversation, err := tdb.ConversationService.CreateConversation(ctx, "Test Conversation")
+	if err != nil {
+		t.Fatalf("Failed to create conversation: %v", err)
+	}
+
+	// Add multiple messages in order
+	systemMsg, err := tdb.ConversationService.AddMessage(ctx, conversation.ID.String(), models.MessageTypeSystem, "System prompt")
+	if err != nil {
+		t.Fatalf("Failed to add system message: %v", err)
+	}
+
+	userMsg, err := tdb.ConversationService.AddMessage(ctx, conversation.ID.String(), models.MessageTypeUser, "User message")
+	if err != nil {
+		t.Fatalf("Failed to add user message: %v", err)
+	}
+
+	assistantMsg, err := tdb.ConversationService.AddMessage(ctx, conversation.ID.String(), models.MessageTypeAssistant, "Assistant response")
+	if err != nil {
+		t.Fatalf("Failed to add assistant message: %v", err)
+	}
+
+	// Get conversation history
+	retrievedConversation, messages, err := tdb.ConversationService.GetConversationHistory(ctx, conversation.ID.String())
+	if err != nil {
+		t.Fatalf("Failed to get conversation history: %v", err)
+	}
+
+	if retrievedConversation.ID != conversation.ID {
+		t.Errorf("Expected conversation ID %s, got %s", conversation.ID, retrievedConversation.ID)
+	}
+
+	if len(messages) != 3 {
+		t.Errorf("Expected 3 messages, got %d", len(messages))
+	}
+
+	// Verify message order (should be ordered by created_at ASC)
+	if messages[0].ID != systemMsg.ID {
+		t.Errorf("Expected first message to be system message")
+	}
+
+	if messages[1].ID != userMsg.ID {
+		t.Errorf("Expected second message to be user message")
+	}
+
+	if messages[2].ID != assistantMsg.ID {
+		t.Errorf("Expected third message to be assistant message")
+	}
+
+	// Verify message contents
+	if messages[0].Content != "System prompt" {
+		t.Errorf("Expected system message content 'System prompt', got %s", messages[0].Content)
+	}
+
+	if messages[1].Content != "User message" {
+		t.Errorf("Expected user message content 'User message', got %s", messages[1].Content)
+	}
+
+	if messages[2].Content != "Assistant response" {
+		t.Errorf("Expected assistant message content 'Assistant response', got %s", messages[2].Content)
+	}
+}
