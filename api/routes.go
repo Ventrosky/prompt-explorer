@@ -2,18 +2,22 @@ package api
 
 import (
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 // Routes sets up all the HTTP routes
-func Routes() *http.ServeMux {
-	mux := http.NewServeMux()
+func Routes() http.Handler {
+	r := mux.NewRouter()
+
 	handlers := NewHandlers()
 
-	// Health check endpoint
-	mux.HandleFunc("/health", handlers.Health)
+	// API routes
+	api := r.PathPrefix("/api").Subrouter()
+	api.HandleFunc("/health", handlers.Health).Methods("GET")
 
 	// Root endpoint
-	mux.HandleFunc("/", handlers.Home)
+	r.HandleFunc("/", handlers.Home).Methods("GET")
 
-	return mux
+	return r
 }
