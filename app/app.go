@@ -12,23 +12,32 @@ import (
 
 	"github.com/ventrosky/prompt-explorer/api"
 	"github.com/ventrosky/prompt-explorer/foundation/config"
+	"github.com/ventrosky/prompt-explorer/foundation/database"
 )
 
 // App represents the application
 type App struct {
-	server *http.Server
-	config *config.Config
+	server   *http.Server
+	config   *config.Config
+	database *database.Database
 }
 
 // New creates a new App instance
 func New() *App {
+	cfg := config.Load()
 	return &App{
-		config: config.Load(),
+		config:   cfg,
+		database: database.New(cfg),
 	}
 }
 
 // Start starts the application server
 func (a *App) Start() error {
+	// Connect to database
+	if err := a.database.Connect(); err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+
 	// Create HTTP server
 	a.server = &http.Server{
 		Addr:    ":" + a.config.ServerPort,
@@ -70,6 +79,11 @@ func (a *App) Stop() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	// Shutdown database connection
+	if a.database != nil {
+		a.database.Close()
+	}
 
 	return a.server.Shutdown(ctx)
 }
