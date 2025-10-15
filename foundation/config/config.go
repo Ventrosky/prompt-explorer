@@ -1,23 +1,33 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 // Config holds application configuration
 type Config struct {
-	ServerPort  string
-	DatabaseURL string
-	Environment string
+	ServerPort   string
+	DatabaseURL  string
+	Environment  string
+	GeminiAPIKey string
 }
 
-// Load loads configuration from environment variables
+// Load loads configuration from environment variables and .env file
 func Load() *Config {
+	// Try to load .env file (ignore error if file doesn't exist)
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: .env file not found or could not be loaded: %v", err)
+	}
+
 	return &Config{
-		ServerPort:  getEnv("SERVER_PORT", "8081"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/prompt_explorer?sslmode=disable"),
-		Environment: getEnv("ENVIRONMENT", "development"),
+		ServerPort:   getEnv("SERVER_PORT", "8081"),
+		DatabaseURL:  getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/prompt_explorer?sslmode=disable"),
+		Environment:  getEnv("ENVIRONMENT", "development"),
+		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
 	}
 }
 
@@ -29,6 +39,11 @@ func (c *Config) IsDevelopment() bool {
 // IsProduction returns true if running in production mode
 func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
+}
+
+// HasGeminiAPIKey returns true if Gemini API key is configured
+func (c *Config) HasGeminiAPIKey() bool {
+	return c.GeminiAPIKey != ""
 }
 
 // getEnv gets an environment variable with a default value

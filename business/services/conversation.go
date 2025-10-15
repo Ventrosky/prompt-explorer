@@ -13,13 +13,15 @@ import (
 type ConversationService struct {
 	conversationRepo repositories.ConversationRepository
 	messageRepo      repositories.MessageRepository
+	geminiService    *GeminiService
 }
 
 // NewConversationService creates a new ConversationService
-func NewConversationService(conversationRepo repositories.ConversationRepository, messageRepo repositories.MessageRepository) *ConversationService {
+func NewConversationService(conversationRepo repositories.ConversationRepository, messageRepo repositories.MessageRepository, geminiService *GeminiService) *ConversationService {
 	return &ConversationService{
 		conversationRepo: conversationRepo,
 		messageRepo:      messageRepo,
+		geminiService:    geminiService,
 	}
 }
 
@@ -218,4 +220,75 @@ func (s *ConversationService) GetMessage(ctx context.Context, messageID string) 
 	}
 
 	return message, nil
+}
+
+// SendMessageToGemini sends a user message to Gemini and returns the assistant response
+func (s *ConversationService) SendMessageToGemini(ctx context.Context, conversationID string, userMessage string) (*models.Message, error) {
+	// Check if Gemini service is available
+	if s.geminiService == nil {
+		return nil, fmt.Errorf("Gemini service not available")
+	}
+
+	convID, err := uuid.Parse(conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid conversation ID: %w", err)
+	}
+
+	// Get conversation to verify it exists
+	_, err = s.conversationRepo.GetByID(ctx, convID)
+	if err != nil {
+		return nil, fmt.Errorf("conversation not found: %w", err)
+	}
+
+	// Add user message to conversation
+	_, err = s.AddMessage(ctx, conversationID, models.MessageTypeUser, userMessage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add user message: %w", err)
+	}
+
+	// Get conversation history for context
+	_, messages, err := s.GetConversationHistory(ctx, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get conversation history: %w", err)
+	}
+
+	// Get system prompt (first system message)
+	systemPrompt, err := s.messageRepo.GetSystemPrompt(ctx, convID)
+	if err != nil {
+		// If no system prompt, use a default one
+		systemPrompt = "You are a helpful AI assistant. Please respond to the user's messages in a helpful and informative way."
+	}
+
+	// Ensure system prompt is the first message
+	var allMessages []*models.Message
+	if len(messages) == 0 || messages[0].Sender != models.MessageTypeSystem {
+		// Add system prompt as first message if not already present
+		systemMsg := models.NewMessage(convID, models.MessageTypeSystem, systemPrompt)
+		allMessages = append([]*models.Message{systemMsg}, messages...)
+	} else {
+		allMessages = messages
+	}
+
+	// Send to Gemini
+	response, err := s.geminiService.SendMessage(ctx, allMessages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send message to Gemini: %w", err)
+	}
+
+	// Add assistant response to conversation
+	assistantMsg, err := s.AddMessage(ctx, conversationID, models.MessageTypeAssistant, response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add assistant message: %w", err)
+	}
+
+	return assistantMsg, nil
+}
+
+// HealthCheck checks if Gemini API is accessible
+func (s *ConversationService) HealthCheck(ctx context.Context) error {
+	if s.geminiService == nil {
+		return fmt.Errorf("Gemini service not available")
+	}
+
+	return s.geminiService.HealthCheck(ctx)
 }

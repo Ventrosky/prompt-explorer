@@ -56,11 +56,22 @@ db-reset: ## Reset database (⚠️ deletes all data)
 # Development setup
 setup: ## Setup development environment
 	@echo "Setting up development environment..."
+	@make setup-env
 	@make deps
 	@make db-up
 	@echo "Waiting for database to be ready..."
 	@sleep 5
 	@echo "Development environment ready!"
+
+setup-env: ## Setup environment file
+	@echo "Setting up environment configuration..."
+	@if [ ! -f .env ]; then \
+		cp env.example .env; \
+		echo "Created .env file from env.example"; \
+		echo "Please edit .env file with your configuration"; \
+	else \
+		echo ".env file already exists"; \
+	fi
 
 deps: ## Install dependencies
 	@echo "Installing dependencies..."

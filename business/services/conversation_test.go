@@ -39,7 +39,7 @@ func setupTestDB(t *testing.T) *TestDB {
 	messageRepo := repositories.NewMessageRepository(db)
 
 	// Create services
-	conversationService := NewConversationService(conversationRepo, messageRepo)
+	conversationService := NewConversationService(conversationRepo, messageRepo, nil)
 
 	return &TestDB{
 		DB:                  db,

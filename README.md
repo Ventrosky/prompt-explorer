@@ -43,12 +43,45 @@ If you prefer step-by-step:
 # 1. Install dependencies
 make deps
 
-# 2. Start PostgreSQL database
+# 2. Configure environment variables
+cp env.example .env
+# Edit .env file with your configuration
+
+# 3. Start PostgreSQL database
 make db-up
 
-# 3. Run the application
+# 4. Run the application
 make dev
 ```
+
+### Environment Configuration
+
+The application supports configuration via environment variables or a `.env` file:
+
+**Option 1: Environment Variables**
+```bash
+export GEMINI_API_KEY=your_api_key_here
+export SERVER_PORT=8081
+export DATABASE_URL=postgres://postgres:postgres@localhost:5432/prompt_explorer?sslmode=disable
+```
+
+**Option 2: .env File**
+```bash
+# Copy the example file
+cp env.example .env
+
+# Edit .env with your configuration
+nano .env
+```
+
+**Required Environment Variables:**
+- `GEMINI_API_KEY` - Your Gemini API key (get from [Google AI Studio](https://aistudio.google.com/app/apikey))
+- `SERVER_PORT` - Server port (default: 8081)
+- `DATABASE_URL` - PostgreSQL connection string (default: localhost)
+- `ENVIRONMENT` - Environment mode (development/production)
+
+**AI Model:**
+- Uses **Gemini 2.5 Pro** - Google's most capable model for complex reasoning and analysis
 
 ## Available Commands
 
