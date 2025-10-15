@@ -21,6 +21,13 @@ test: ## Run all tests
 	@echo "Running all tests..."
 	go test ./...
 
+lint: ## Run linters (using built-in Go tools)
+	@echo "Running Go linters..."
+	go fmt ./...
+	go vet ./...
+	go mod tidy
+	@echo "Linting complete!"
+
 clean: ## Clean build artifacts
 	@echo "Cleaning build artifacts..."
 	rm -rf bin/ tmp/
