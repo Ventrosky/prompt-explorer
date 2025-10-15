@@ -17,8 +17,8 @@ dev: ## Run the application in development mode
 	@echo "Starting development server..."
 	go run ./cmd/server
 
-test: ## Run tests
-	@echo "Running tests..."
+test: ## Run all tests
+	@echo "Running all tests..."
 	go test ./...
 
 clean: ## Clean build artifacts

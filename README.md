@@ -57,11 +57,11 @@ Run `make help` to see all available commands.
 ### Development Commands
 
 ```bash
-make dev          # Run development server
-make build        # Build the application
-make run          # Build and run the application
-make test         # Run tests
-make clean        # Clean build artifacts
+make dev    # Run development server
+make build  # Build the application
+make run    # Build and run the application
+make test   # Run all tests
+make clean  # Clean build artifacts
 ```
 
 ### Database Commands
@@ -108,11 +108,15 @@ prompt-explorer/
 
 ## Database
 
-The application uses PostgreSQL running in Docker. The database includes:
+The application uses PostgreSQL running in Docker with two databases:
+
+- **prompt_explorer** - Main application database
+- **test_prompt_explorer** - Test database for integration tests
+
+The database includes:
 
 - **conversations** - Conversation tracking with titles and favorites
 - **messages** - Chat messages with conversation references
-- **schema_migrations** - Migration tracking
 
 ### Database Schema
 
@@ -128,6 +132,23 @@ The application uses PostgreSQL running in Docker. The database includes:
 - `sender` (ENUM) - Message type: 'system', 'user', 'assistant'
 - `content` (TEXT) - Message content
 - `created_at` (TIMESTAMP) - Creation time
+
+### Testing
+
+The project includes both unit tests and integration tests:
+
+- **Unit Tests** - Fast, isolated tests that don't require a database
+- **Integration Tests** - Tests that run against a real PostgreSQL database
+
+To run all tests, ensure the database is running:
+
+```bash
+# Start the database
+make db-up
+
+# Run all tests (unit + integration)
+make test
+```
 
 ## Configuration
 

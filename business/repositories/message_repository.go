@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -21,12 +22,14 @@ type MessageRepository interface {
 
 // messageRepository implements MessageRepository
 type messageRepository struct {
-	// TODO: Add database connection when implementing
+	db *sql.DB
 }
 
 // NewMessageRepository creates a new MessageRepository
-func NewMessageRepository() MessageRepository {
-	return &messageRepository{}
+func NewMessageRepository(db *sql.DB) MessageRepository {
+	return &messageRepository{
+		db: db,
+	}
 }
 
 // Create creates a new message
