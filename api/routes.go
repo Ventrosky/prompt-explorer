@@ -17,7 +17,13 @@ func Routes(conversationService *services.ConversationService) http.Handler {
 	api := r.PathPrefix("/api").Subrouter()
 	api.HandleFunc("/health", handlers.Health).Methods("GET")
 
-	// Root endpoint
+	// Conversation routes
+	api.HandleFunc("/conversations", handlers.CreateConversation).Methods("POST")
+	api.HandleFunc("/conversations/{id}", handlers.GetConversation).Methods("GET")
+	api.HandleFunc("/conversations/{id}/messages", handlers.SendMessage).Methods("POST")
+	api.HandleFunc("/conversations/{id}/favorite", handlers.ToggleFavorite).Methods("POST")
+
+	// Simple health check interface
 	r.HandleFunc("/", handlers.Home).Methods("GET")
 
 	return r
