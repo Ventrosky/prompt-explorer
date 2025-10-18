@@ -31,3 +31,72 @@ go.work.sum
 # .idea/
 # .vscode/
 .internal/
+
+# React/Node.js Frontend (fe/)
+fe/node_modules/
+fe/dist/
+fe/build/
+fe/.vite/
+fe/.cache/
+
+# Node.js
+fe/package-lock.json
+fe/yarn.lock
+fe/pnpm-lock.yaml
+
+# Environment files
+fe/.env
+fe/.env.local
+fe/.env.development.local
+fe/.env.test.local
+fe/.env.production.local
+
+# Logs
+fe/npm-debug.log*
+fe/yarn-debug.log*
+fe/yarn-error.log*
+fe/lerna-debug.log*
+
+# Runtime data
+fe/pids
+fe/*.pid
+fe/*.seed
+fe/*.pid.lock
+
+# Coverage directory used by tools like istanbul
+fe/coverage/
+fe/.nyc_output
+
+# ESLint cache
+fe/.eslintcache
+
+# Optional npm cache directory
+fe/.npm
+
+# Optional REPL history
+fe/.node_repl_history
+
+# Output of 'npm pack'
+fe/*.tgz
+
+# Yarn Integrity file
+fe/.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+fe/.cache
+fe/.parcel-cache
+
+# Next.js build output
+fe/.next
+
+# Nuxt.js build / generate output
+fe/.nuxt
+fe/dist
+
+# Storybook build outputs
+fe/.out
+fe/.storybook-out
+
+# Temporary folders
+fe/tmp/
+fe/temp/

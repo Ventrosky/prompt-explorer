@@ -1,4 +1,4 @@
-.PHONY: help build run dev test clean
+.PHONY: help build run dev test clean fe-deps fe-dev fe-build fe-preview fe-check dev-full
 
 # Default target
 help: ## Show this help message
@@ -62,6 +62,10 @@ setup: ## Setup development environment
 	@echo "Waiting for database to be ready..."
 	@sleep 5
 	@echo "Development environment ready!"
+	@echo "To start the full application:"
+	@echo "  Backend only: make dev"
+	@echo "  Frontend only: make fe-dev"
+	@echo "  Both together: make dev-full"
 
 setup-env: ## Setup environment file
 	@echo "Setting up environment configuration..."
@@ -77,3 +81,53 @@ deps: ## Install dependencies
 	@echo "Installing dependencies..."
 	go mod download
 	go mod tidy
+	@echo "Installing React frontend dependencies..."
+	cd fe && npm install
+
+# Frontend commands
+fe-deps: ## Install React frontend dependencies
+	@echo "Installing React frontend dependencies..."
+	@if ! command -v npm >/dev/null 2>&1; then \
+		echo "Error: npm is not installed. Please install Node.js and npm first."; \
+		echo "Visit: https://nodejs.org/"; \
+		exit 1; \
+	fi
+	cd fe && npm install
+
+fe-dev: ## Start React development server
+	@echo "Starting React development server..."
+	cd fe && npm run dev
+
+fe-build: ## Build React frontend for production
+	@echo "Building React frontend..."
+	cd fe && npm run build
+
+fe-preview: ## Preview React production build
+	@echo "Previewing React production build..."
+	cd fe && npm run preview
+
+fe-check: ## Check if React frontend is properly set up
+	@echo "Checking React frontend setup..."
+	@if [ ! -d "fe" ]; then \
+		echo "Error: fe directory not found"; \
+		exit 1; \
+	fi
+	@if [ ! -f "fe/package.json" ]; then \
+		echo "Error: fe/package.json not found"; \
+		exit 1; \
+	fi
+	@if [ ! -d "fe/node_modules" ]; then \
+		echo "Warning: node_modules not found. Run 'make fe-deps' first"; \
+	fi
+	@echo "React frontend setup looks good!"
+
+# Full development setup
+dev-full: ## Start both backend and frontend in development mode
+	@echo "Starting full development environment..."
+	@echo "Backend will run on http://localhost:8081"
+	@echo "Frontend will run on http://localhost:3000"
+	@echo "Starting backend..."
+	@make dev &
+	@sleep 3
+	@echo "Starting frontend..."
+	@make fe-dev
