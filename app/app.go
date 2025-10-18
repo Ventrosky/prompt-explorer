@@ -11,15 +11,18 @@ import (
 	"time"
 
 	"github.com/ventrosky/prompt-explorer/api"
+	"github.com/ventrosky/prompt-explorer/business/repositories"
+	"github.com/ventrosky/prompt-explorer/business/services"
 	"github.com/ventrosky/prompt-explorer/foundation/config"
 	"github.com/ventrosky/prompt-explorer/foundation/database"
 )
 
 // App represents the application
 type App struct {
-	server   *http.Server
-	config   *config.Config
-	database *database.Database
+	server              *http.Server
+	config              *config.Config
+	database            *database.Database
+	conversationService *services.ConversationService
 }
 
 // New creates a new App instance
@@ -38,10 +41,27 @@ func (a *App) Start() error {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Create repository
+	repo := repositories.NewRepository(a.database.GetDB())
+
+	// Create Gemini service if API key is available
+	var geminiService *services.GeminiService
+	if a.config.HasGeminiAPIKey() {
+		var err error
+		geminiService, err = services.NewGeminiService(a.config.GeminiAPIKey)
+		if err != nil {
+			log.Printf("Warning: Failed to create Gemini service: %v", err)
+			geminiService = nil
+		}
+	}
+
+	// Create conversation service
+	a.conversationService = services.NewConversationService(repo, geminiService)
+
 	// Create HTTP server
 	a.server = &http.Server{
 		Addr:    ":" + a.config.ServerPort,
-		Handler: api.Routes(),
+		Handler: api.Routes(a.conversationService),
 	}
 
 	// Start server in a goroutine

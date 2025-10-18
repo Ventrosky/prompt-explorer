@@ -4,13 +4,14 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/ventrosky/prompt-explorer/business/services"
 )
 
 // Routes sets up all the HTTP routes
-func Routes() http.Handler {
+func Routes(conversationService *services.ConversationService) http.Handler {
 	r := mux.NewRouter()
 
-	handlers := NewHandlers()
+	handlers := NewHandlers(conversationService)
 
 	// API routes
 	api := r.PathPrefix("/api").Subrouter()

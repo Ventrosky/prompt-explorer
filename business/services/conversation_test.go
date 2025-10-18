@@ -15,8 +15,7 @@ import (
 // TestDB represents a test database connection
 type TestDB struct {
 	DB                  *sql.DB
-	ConversationRepo    repositories.ConversationRepository
-	MessageRepo         repositories.MessageRepository
+	Repo                repositories.Repository
 	ConversationService *ConversationService
 }
 
@@ -34,17 +33,15 @@ func setupTestDB(t *testing.T) *TestDB {
 		t.Fatalf("Failed to ping test database: %v", err)
 	}
 
-	// Create repositories
-	conversationRepo := repositories.NewConversationRepository(db)
-	messageRepo := repositories.NewMessageRepository(db)
+	// Create repository
+	repo := repositories.NewRepository(db)
 
 	// Create services
-	conversationService := NewConversationService(conversationRepo, messageRepo, nil)
+	conversationService := NewConversationService(repo, nil)
 
 	return &TestDB{
 		DB:                  db,
-		ConversationRepo:    conversationRepo,
-		MessageRepo:         messageRepo,
+		Repo:                repo,
 		ConversationService: conversationService,
 	}
 }
@@ -82,13 +79,13 @@ func TestConversationRepository_Create(t *testing.T) {
 	}
 
 	// Test create
-	err := tdb.ConversationRepo.Create(ctx, conversation)
+	err := tdb.Repo.CreateConversation(ctx, conversation)
 	if err != nil {
 		t.Fatalf("Failed to create conversation: %v", err)
 	}
 
 	// Verify conversation was created
-	retrieved, err := tdb.ConversationRepo.GetByID(ctx, conversation.ID)
+	retrieved, err := tdb.Repo.GetConversationByID(ctx, conversation.ID)
 	if err != nil {
 		t.Fatalf("Failed to retrieve conversation: %v", err)
 	}
@@ -132,14 +129,14 @@ func TestConversationRepository_List(t *testing.T) {
 
 	// Create conversations
 	for _, conv := range conversations {
-		err := tdb.ConversationRepo.Create(ctx, conv)
+		err := tdb.Repo.CreateConversation(ctx, conv)
 		if err != nil {
 			t.Fatalf("Failed to create conversation: %v", err)
 		}
 	}
 
 	// Test list
-	list, err := tdb.ConversationRepo.List(ctx)
+	list, err := tdb.Repo.ListConversations(ctx)
 	if err != nil {
 		t.Fatalf("Failed to list conversations: %v", err)
 	}
@@ -168,19 +165,19 @@ func TestConversationRepository_ToggleFavorite(t *testing.T) {
 		CreatedAt:  time.Now(),
 	}
 
-	err := tdb.ConversationRepo.Create(ctx, conversation)
+	err := tdb.Repo.CreateConversation(ctx, conversation)
 	if err != nil {
 		t.Fatalf("Failed to create conversation: %v", err)
 	}
 
 	// Toggle favorite
-	err = tdb.ConversationRepo.ToggleFavorite(ctx, conversation.ID)
+	err = tdb.Repo.ToggleConversationFavorite(ctx, conversation.ID)
 	if err != nil {
 		t.Fatalf("Failed to toggle favorite: %v", err)
 	}
 
 	// Verify favorite was toggled
-	retrieved, err := tdb.ConversationRepo.GetByID(ctx, conversation.ID)
+	retrieved, err := tdb.Repo.GetConversationByID(ctx, conversation.ID)
 	if err != nil {
 		t.Fatalf("Failed to retrieve conversation: %v", err)
 	}

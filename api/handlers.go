@@ -1,32 +1,61 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
+
+	"github.com/ventrosky/prompt-explorer/business/services"
 )
 
 // HealthResponse represents the health check response
 type HealthResponse struct {
-	Status  string `json:"status"`
-	Service string `json:"service"`
+	Status    string `json:"status"`
+	Service   string `json:"service"`
+	Database  string `json:"database"`
+	GeminiAPI string `json:"gemini_api"`
 }
 
 // Handlers contains all HTTP handlers
-type Handlers struct{}
+type Handlers struct {
+	conversationService *services.ConversationService
+}
 
 // NewHandlers creates a new Handlers instance
-func NewHandlers() *Handlers {
-	return &Handlers{}
+func NewHandlers(conversationService *services.ConversationService) *Handlers {
+	return &Handlers{
+		conversationService: conversationService,
+	}
 }
 
 // Health handles the health check endpoint
 func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
 
 	response := HealthResponse{
-		Status:  "ok",
-		Service: "prompt-explorer",
+		Status:    "ok",
+		Service:   "prompt-explorer",
+		Database:  "ok",
+		GeminiAPI: "unknown",
+	}
+
+	// Check Gemini API health if service is available
+	if h.conversationService != nil {
+		if err := h.conversationService.HealthCheck(ctx); err != nil {
+			response.Status = "degraded"
+			response.GeminiAPI = "error: " + err.Error()
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			response.GeminiAPI = "ok"
+			w.WriteHeader(http.StatusOK)
+		}
+	} else {
+		response.GeminiAPI = "not configured"
+		w.WriteHeader(http.StatusOK)
 	}
 
 	json.NewEncoder(w).Encode(response)

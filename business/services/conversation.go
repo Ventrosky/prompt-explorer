@@ -11,17 +11,15 @@ import (
 
 // ConversationService handles conversation business logic
 type ConversationService struct {
-	conversationRepo repositories.ConversationRepository
-	messageRepo      repositories.MessageRepository
-	geminiService    *GeminiService
+	repo          repositories.Repository
+	geminiService *GeminiService
 }
 
 // NewConversationService creates a new ConversationService
-func NewConversationService(conversationRepo repositories.ConversationRepository, messageRepo repositories.MessageRepository, geminiService *GeminiService) *ConversationService {
+func NewConversationService(repo repositories.Repository, geminiService *GeminiService) *ConversationService {
 	return &ConversationService{
-		conversationRepo: conversationRepo,
-		messageRepo:      messageRepo,
-		geminiService:    geminiService,
+		repo:          repo,
+		geminiService: geminiService,
 	}
 }
 
@@ -29,7 +27,7 @@ func NewConversationService(conversationRepo repositories.ConversationRepository
 func (s *ConversationService) CreateConversation(ctx context.Context, title string) (*models.Conversation, error) {
 	conversation := models.NewConversation(title)
 
-	if err := s.conversationRepo.Create(ctx, conversation); err != nil {
+	if err := s.repo.CreateConversation(ctx, conversation); err != nil {
 		return nil, fmt.Errorf("failed to create conversation: %w", err)
 	}
 
@@ -41,13 +39,13 @@ func (s *ConversationService) CreateConversationWithSystemPrompt(ctx context.Con
 	conversation := models.NewConversation(title)
 
 	// Create conversation first
-	if err := s.conversationRepo.Create(ctx, conversation); err != nil {
+	if err := s.repo.CreateConversation(ctx, conversation); err != nil {
 		return nil, nil, fmt.Errorf("failed to create conversation: %w", err)
 	}
 
 	// Create system message
 	systemMessage := models.NewMessage(conversation.ID, models.MessageTypeSystem, systemPrompt)
-	if err := s.messageRepo.Create(ctx, systemMessage); err != nil {
+	if err := s.repo.CreateMessage(ctx, systemMessage); err != nil {
 		return nil, nil, fmt.Errorf("failed to create system message: %w", err)
 	}
 
@@ -61,12 +59,12 @@ func (s *ConversationService) GetConversation(ctx context.Context, id string) (*
 		return nil, fmt.Errorf("invalid conversation ID: %w", err)
 	}
 
-	return s.conversationRepo.GetByID(ctx, conversationID)
+	return s.repo.GetConversationByID(ctx, conversationID)
 }
 
 // ListConversations retrieves all conversations
 func (s *ConversationService) ListConversations(ctx context.Context) ([]*models.Conversation, error) {
-	return s.conversationRepo.List(ctx)
+	return s.repo.ListConversations(ctx)
 }
 
 // ToggleFavorite toggles the favorite status of a conversation
@@ -76,7 +74,7 @@ func (s *ConversationService) ToggleFavorite(ctx context.Context, id string) err
 		return fmt.Errorf("invalid conversation ID: %w", err)
 	}
 
-	return s.conversationRepo.ToggleFavorite(ctx, conversationID)
+	return s.repo.ToggleConversationFavorite(ctx, conversationID)
 }
 
 // GetSystemPrompt retrieves the system prompt (first system message) from a conversation
@@ -87,7 +85,7 @@ func (s *ConversationService) GetSystemPrompt(ctx context.Context, conversationI
 	}
 
 	// Get the first system message for this conversation
-	messages, err := s.messageRepo.GetByConversationID(ctx, convID)
+	messages, err := s.repo.GetMessagesByConversationID(ctx, convID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get messages: %w", err)
 	}
@@ -109,7 +107,7 @@ func (s *ConversationService) GetNextConversation(ctx context.Context, currentID
 		return nil, fmt.Errorf("invalid conversation ID: %w", err)
 	}
 
-	return s.conversationRepo.GetNextConversation(ctx, currentUUID)
+	return s.repo.GetNextConversation(ctx, currentUUID)
 }
 
 // GetPreviousConversation gets the previous conversation (older) by timestamp
@@ -119,7 +117,7 @@ func (s *ConversationService) GetPreviousConversation(ctx context.Context, curre
 		return nil, fmt.Errorf("invalid conversation ID: %w", err)
 	}
 
-	return s.conversationRepo.GetPreviousConversation(ctx, currentUUID)
+	return s.repo.GetPreviousConversation(ctx, currentUUID)
 }
 
 // GetConversationHistory gets a conversation with all its messages
@@ -130,13 +128,13 @@ func (s *ConversationService) GetConversationHistory(ctx context.Context, conver
 	}
 
 	// Get conversation
-	conversation, err := s.conversationRepo.GetByID(ctx, convID)
+	conversation, err := s.repo.GetConversationByID(ctx, convID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get conversation: %w", err)
 	}
 
 	// Get messages
-	messages, err := s.messageRepo.GetByConversationID(ctx, convID)
+	messages, err := s.repo.GetMessagesByConversationID(ctx, convID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get messages: %w", err)
 	}
@@ -152,7 +150,7 @@ func (s *ConversationService) AddMessage(ctx context.Context, conversationID str
 	}
 
 	// Verify conversation exists
-	_, err = s.conversationRepo.GetByID(ctx, convID)
+	_, err = s.repo.GetConversationByID(ctx, convID)
 	if err != nil {
 		return nil, fmt.Errorf("conversation not found: %w", err)
 	}
@@ -161,7 +159,7 @@ func (s *ConversationService) AddMessage(ctx context.Context, conversationID str
 	message := models.NewMessage(convID, sender, content)
 
 	// Save message
-	if err := s.messageRepo.Create(ctx, message); err != nil {
+	if err := s.repo.CreateMessage(ctx, message); err != nil {
 		return nil, fmt.Errorf("failed to create message: %w", err)
 	}
 
@@ -176,7 +174,7 @@ func (s *ConversationService) UpdateMessage(ctx context.Context, messageID strin
 	}
 
 	// Get existing message
-	message, err := s.messageRepo.GetByID(ctx, msgID)
+	message, err := s.repo.GetMessageByID(ctx, msgID)
 	if err != nil {
 		return fmt.Errorf("message not found: %w", err)
 	}
@@ -185,7 +183,7 @@ func (s *ConversationService) UpdateMessage(ctx context.Context, messageID strin
 	message.Content = content
 
 	// Save changes
-	if err := s.messageRepo.Update(ctx, message); err != nil {
+	if err := s.repo.UpdateMessage(ctx, message); err != nil {
 		return fmt.Errorf("failed to update message: %w", err)
 	}
 
@@ -200,7 +198,7 @@ func (s *ConversationService) DeleteMessage(ctx context.Context, messageID strin
 	}
 
 	// Delete message
-	if err := s.messageRepo.Delete(ctx, msgID); err != nil {
+	if err := s.repo.DeleteMessage(ctx, msgID); err != nil {
 		return fmt.Errorf("failed to delete message: %w", err)
 	}
 
@@ -214,7 +212,7 @@ func (s *ConversationService) GetMessage(ctx context.Context, messageID string) 
 		return nil, fmt.Errorf("invalid message ID: %w", err)
 	}
 
-	message, err := s.messageRepo.GetByID(ctx, msgID)
+	message, err := s.repo.GetMessageByID(ctx, msgID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get message: %w", err)
 	}
@@ -235,7 +233,7 @@ func (s *ConversationService) SendMessageToGemini(ctx context.Context, conversat
 	}
 
 	// Get conversation to verify it exists
-	_, err = s.conversationRepo.GetByID(ctx, convID)
+	_, err = s.repo.GetConversationByID(ctx, convID)
 	if err != nil {
 		return nil, fmt.Errorf("conversation not found: %w", err)
 	}
@@ -253,7 +251,7 @@ func (s *ConversationService) SendMessageToGemini(ctx context.Context, conversat
 	}
 
 	// Get system prompt (first system message)
-	systemPrompt, err := s.messageRepo.GetSystemPrompt(ctx, convID)
+	systemPrompt, err := s.repo.GetSystemPrompt(ctx, convID)
 	if err != nil {
 		// If no system prompt, use a default one
 		systemPrompt = "You are a helpful AI assistant. Please respond to the user's messages in a helpful and informative way."
@@ -270,7 +268,7 @@ func (s *ConversationService) SendMessageToGemini(ctx context.Context, conversat
 	}
 
 	// Send to Gemini
-	response, err := s.geminiService.SendMessage(ctx, allMessages)
+	response, err := s.geminiService.SendMessage(ctx, conversationID, allMessages)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send message to Gemini: %w", err)
 	}

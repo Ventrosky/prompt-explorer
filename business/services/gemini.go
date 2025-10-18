@@ -27,8 +27,8 @@ func NewGeminiService(apiKey string) (*GeminiService, error) {
 		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
 	}
 
-	// Use Gemini 2.5 Pro model (most capable model)
-	modelName := "gemini-2.5-pro"
+	// Use Gemini 2.0 Flash model (faster and more quota-friendly)
+	modelName := "gemini-2.0-flash"
 
 	return &GeminiService{
 		client: client,
@@ -37,11 +37,17 @@ func NewGeminiService(apiKey string) (*GeminiService, error) {
 }
 
 // SendMessage sends a message to Gemini and returns the response
-func (s *GeminiService) SendMessage(ctx context.Context, messages []*models.Message) (string, error) {
-	// Prepare the conversation history
-	var history []*genai.Content
+func (s *GeminiService) SendMessage(ctx context.Context, conversationID string, messages []*models.Message) (string, error) {
+	if len(messages) == 0 {
+		return "", fmt.Errorf("no messages to send")
+	}
 
-	// Add conversation messages (first message should be system prompt)
+	// Generate content with timeout
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	// Convert all messages to genai.Content format
+	var history []*genai.Content
 	for _, msg := range messages {
 		var role genai.Role
 		switch msg.Sender {
@@ -54,29 +60,13 @@ func (s *GeminiService) SendMessage(ctx context.Context, messages []*models.Mess
 		default:
 			role = genai.RoleUser
 		}
-
 		history = append(history, genai.NewContentFromText(msg.Content, role))
 	}
 
-	// Generate content with timeout
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
-	// Create chat session with history
-	chat, err := s.client.Chats.Create(ctx, s.model, nil, history)
+	// Send the complete conversation history to Gemini
+	response, err := s.client.Models.GenerateContent(ctx, s.model, history, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create chat: %w", err)
-	}
-
-	// Send the last message (which should be the user's current message)
-	if len(messages) == 0 {
-		return "", fmt.Errorf("no messages to send")
-	}
-
-	lastMessage := messages[len(messages)-1]
-	response, err := chat.SendMessage(ctx, genai.Part{Text: lastMessage.Content})
-	if err != nil {
-		return "", fmt.Errorf("failed to send message: %w", err)
+		return "", fmt.Errorf("failed to generate content: %w", err)
 	}
 
 	// Extract the response text
@@ -99,16 +89,10 @@ func (s *GeminiService) SendMessage(ctx context.Context, messages []*models.Mess
 
 // HealthCheck checks if the Gemini API is accessible
 func (s *GeminiService) HealthCheck(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	// Send a simple test message
-	chat, err := s.client.Chats.Create(ctx, s.model, nil, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create chat: %w", err)
-	}
-
-	response, err := chat.SendMessage(ctx, genai.Part{Text: "Hello, are you working?"})
+	response, err := s.client.Models.GenerateContent(ctx, s.model, genai.Text("Hello, are you working?"), nil)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
 	}
